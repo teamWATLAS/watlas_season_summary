@@ -5,7 +5,7 @@
 # This script extracts WATLAS data from the database and saves it as a CSV file.
 # Afterwards check the data (0c_check_raw_data).
 
-# It extracts all data from one season and saves then separately for each tag
+# It extracts all data from one year and saves then separately for each tag
 # as csv.
 
 # Summary
@@ -15,15 +15,17 @@
 # packages
 library(tools4watlas)
 library(foreach)
+library(lubridate)
 
-# specify season and file path's
-season_id <- 2023
-season2_id <- season_id + 1 # set to NULL if not existing yet
+# specify year and file path's
+year_id <- 2023
+year2_id <- year_id + 1 # set to NULL if not existing yet
 
 # file path to WATLAS teams data folder
 watlas_fp <- atl_file_path("watlas_teams")
 
 # file path to sqlite databases
+db_fp <- atl_file_path("sqlite_db")
 db_fp <- paste0(
   "C:/Users/jkrietsch/OneDrive - NIOZ/",
   "Documents/watlas_data/localizations/"
@@ -45,20 +47,20 @@ all_tags <- readxl::read_excel(
 
 # check species names
 all_tags[, .N, species]
-all_tags[season == season_id, .N, species]
+all_tags[year == year_id, .N, species]
 
 # subset desired tags using data.table
-tags <- all_tags[season == season_id & !is.na(species)]$tag
+tags <- all_tags[year == year_id & !is.na(species)]$tag
 
 # check N
 tags |> length()
 
 # time period for which data should be extracted form the database
-from <- paste0(season_id, "-01-01 00:00:00")
-to <- paste0(season_id, "-12-31 23:59:59")
+from <- paste0(year_id, "-01-01 00:00:00")
+to <- paste0(year_id, "-12-31 23:59:59")
 
 # database connection
-sqlite_db <- paste0(db_fp, "watlas-", season_id, ".sqlite")
+sqlite_db <- paste0(db_fp, "watlas-", year_id, ".sqlite")
 con <- RSQLite::dbConnect(RSQLite::SQLite(), sqlite_db)
 
 # load data from database
@@ -73,16 +75,16 @@ data <- atl_get_data(
 # close connection
 RSQLite::dbDisconnect(con)
 
-### add data from next season if available
+### add data from next year if available
 
-if (!is.null(season2_id)) {
+if (!is.null(year2_id)) {
 
   # time period for which data should be extracted form the database
-  from <- paste0(season2_id, "-01-01 00:00:00")
-  to <- paste0(season2_id, "-12-31 23:59:59")
+  from <- paste0(year2_id, "-01-01 00:00:00")
+  to <- paste0(year2_id, "-12-31 23:59:59")
 
   # database connection
-  sqlite_db <- paste0(db_fp, "watlas-", season2_id, ".sqlite")
+  sqlite_db <- paste0(db_fp, "watlas-", year2_id, ".sqlite")
   con <- RSQLite::dbConnect(RSQLite::SQLite(), sqlite_db)
 
   # load data from database
@@ -102,12 +104,23 @@ if (!is.null(season2_id)) {
 
 }
 
-# join with species data
+# correct tag format
 all_tags[, tag := sprintf("%04d", as.integer(tag))]
-data[all_tags, on = "tag", `:=`(species = i.species)]
+
+# correct time zone to CET and change to UTC
+all_tags[, release_ts := force_tz(as_datetime(release_ts), tzone = "CET")]
+all_tags[, release_ts := with_tz(release_ts, tzone = "UTC")]
+
+# join release_ts and species with data
+all_tags[, tag := as.character(tag)]
+data[all_tags, on = "tag", `:=`(release_ts = i.release_ts, species = i.species)]
 
 # make species first column
 setcolorder(data, c("species", setdiff(names(data), c("species"))))
+
+# exclude positions before the release and 24h after
+data <- data[datetime > release_ts]
+data[, release_ts := NULL]
 
 # order data.table
 setorder(data, species, tag, time)
@@ -129,7 +142,7 @@ foreach(i = id) %do% {
   fwrite(
     data_subset,
     paste0(
-      "./data/", season_id, "/watlas_", season_id,
+      "./data/", year_id, "/watlas_", year_id,
       "_raw_tag_", i, ".csv"
     ),
     yaml = TRUE

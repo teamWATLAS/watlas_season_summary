@@ -16,8 +16,8 @@ library(viridis)
 library(foreach)
 library(mapview)
 
-# specify season and tag
-season_id <- 2023
+# specify year and tag
+year_id <- 2023
 tag_id <- "3101"
 
 # file path to SQLite databases
@@ -28,11 +28,11 @@ db_fp <- atl_file_path("sqlite_db")
 #-------------------------------------------------------------------------------
 
 # time period for which data should be extracted form the database
-from <- paste0(season_id, "-01-01 00:00:00")
-to <- paste0(season_id, "-12-31 23:59:59")
+from <- paste0(year_id, "-01-01 00:00:00")
+to <- paste0(year_id, "-12-31 23:59:59")
 
 # database connection
-sqlite_db <- paste0(db_fp, "watlas-", season_id, ".sqlite")
+sqlite_db <- paste0(db_fp, "watlas-", year_id, ".sqlite")
 con <- RSQLite::dbConnect(RSQLite::SQLite(), sqlite_db)
 
 # load data from database

@@ -20,11 +20,11 @@ library(viridis)
 library(foreach)
 library(doFuture)
 
-# specify season and file path's
-season_id <- 2021
+# specify year and file path's
+year_id <- 2024
 
 # file path to split raw data
-path_raw <- paste0("./data/", season_id, "/")
+path_raw <- paste0("./data/", year_id, "/")
 
 # list all files
 file_list <- list.files(
@@ -47,7 +47,7 @@ setorder(data_summary, species, tag)
 # save summary
 fwrite(
   data_summary,
-  paste0("./outputs/season_overview/data_summary_all_", season_id, ".csv")
+  paste0("./outputs/season_overview/data_summary_all_", year_id, ".csv")
 )
 
 # N individuals with tagging data
@@ -72,7 +72,7 @@ ggplot(data_subset, aes(x = date, y = tag, fill = N)) +
     labels = trans_format("log10", math_format(10^.x)),
     direction = -1
   ) +
-  labs(x = "Date", y = "Tag", title = season_id) +
+  labs(x = "Date", y = "Tag", title = year_id) +
   theme_classic() +
   facet_grid(species ~ ., scales = "free_y", space = "free", switch = "y") +
   theme(
@@ -83,7 +83,7 @@ ggplot(data_subset, aes(x = date, y = tag, fill = N)) +
 
 # save
 ggsave(
-  paste0("./outputs/season_overview/data_by_day_all_", season_id, ".png"),
+  paste0("./outputs/season_overview/data_by_day_all_", year_id, ".png"),
   plot = last_plot(), width = 3240, height = 2160, units = c("px"), dpi = 300
 )
 
@@ -115,11 +115,11 @@ bm +
     labels = trans_format("log10", math_format(10^.x)),
     direction = -1
   ) +
-  ggtitle(label = season_id)
+  ggtitle(label = year_id)
 
 # save
 ggsave(
-  paste0("./outputs/season_overview/heatmap_all_", season_id, ".png"),
+  paste0("./outputs/season_overview/heatmap_all_", year_id, ".png"),
   plot = last_plot(), width = 3240, height = 2160, units = c("px"), dpi = 300
 )
 
@@ -148,7 +148,7 @@ foreach(i = id) %do% {
       labels = trans_format("log10", math_format(10^.x)),
       direction = -1
     ) +
-    labs(x = "Date", y = "Tag", title = season_id) +
+    labs(x = "Date", y = "Tag", title = year_id) +
     theme_classic() +
     facet_grid(species ~ ., scales = "free_y", space = "free", switch = "y") +
     theme(
@@ -161,7 +161,7 @@ foreach(i = id) %do% {
   ggsave(
     paste0(
       "./outputs/season_overview/by_species/data_by_day_", i,
-      "_", season_id, ".png"
+      "_", year_id, ".png"
     ),
     plot = last_plot(), width = 3240, height = 2160, units = c("px"), dpi = 300
   )
@@ -201,13 +201,13 @@ foreach(i = id) %do% {
       labels = trans_format("log10", math_format(10^.x)),
       direction = -1
     ) +
-    ggtitle(label = season_id)
+    ggtitle(label = year_id)
 
   # save
   ggsave(
     paste0(
       "./outputs/season_overview/by_species/heatmap_", i,
-      "_", season_id, ".png"
+      "_", year_id, ".png"
     ),
     plot = last_plot(), width = 3240, height = 2160, units = c("px"), dpi = 300
   )
@@ -219,7 +219,7 @@ foreach(i = id) %do% {
 #-------------------------------------------------------------------------------
 
 # file path output
-path <- paste0("./outputs/maps_by_tag_raw/", season_id, "/")
+path <- paste0("./outputs/maps_by_tag_raw/", year_id, "/")
 
 # unique ID (here by tag)
 id <- unique(data$tag)
@@ -233,7 +233,7 @@ foreach(i = id) %dofuture% {
 
   # subset data
   data_subset <- fread(
-    paste0(path_raw, "watlas_", season_id, "_raw_tag_", i, ".csv"),
+    paste0(path_raw, "watlas_", year_id, "_raw_tag_", i, ".csv"),
     yaml = TRUE
   )
 
@@ -242,6 +242,7 @@ foreach(i = id) %dofuture% {
     data_subset,
     option = "datetime",
     highlight_first = TRUE, highlight_last = TRUE,
+    water_fill = "lightblue", land_fill = "grey70",
     filename = paste0(path, data_subset[1]$species, "_tag_", i)
   )
 
@@ -255,7 +256,7 @@ plan(sequential)
 #-------------------------------------------------------------------------------
 
 # file path output
-path <- paste0("./outputs/maps_by_tag_raw_last1000/", season_id, "/")
+path <- paste0("./outputs/maps_by_tag_raw_last1000/", year_id, "/")
 
 # unique ID (here by tag)
 id <- unique(data$tag)
@@ -269,7 +270,7 @@ foreach(i = id) %dofuture% {
 
   # subset data
   data_subset <- fread(
-    paste0(path_raw, "watlas_", season_id, "_raw_tag_", i, ".csv"),
+    paste0(path_raw, "watlas_", year_id, "_raw_tag_", i, ".csv"),
     yaml = TRUE
   )
 
@@ -278,6 +279,7 @@ foreach(i = id) %dofuture% {
     data_subset,
     option = "datetime",
     highlight_first = TRUE, highlight_last = TRUE, last_n = 1000,
+    water_fill = "lightblue", land_fill = "grey70",
     filename = paste0(path, data_subset[1]$species, "_tag_", i)
   )
 
@@ -287,11 +289,11 @@ foreach(i = id) %dofuture% {
 plan(sequential)
 
 #-------------------------------------------------------------------------------
-# 5. Check all data with map by ID for last 100 positions
+# 5. Check all data with map by ID for last 1 hour
 #-------------------------------------------------------------------------------
 
 # file path output
-path <- paste0("./outputs/maps_by_tag_raw_last100/", season_id, "/")
+path <- paste0("./outputs/maps_by_tag_raw_last1hour/", year_id, "/")
 
 # unique ID (here by tag)
 id <- unique(data$tag)
@@ -305,15 +307,18 @@ foreach(i = id) %dofuture% {
 
   # subset data
   data_subset <- fread(
-    paste0(path_raw, "watlas_", season_id, "_raw_tag_", i, ".csv"),
+    paste0(path_raw, "watlas_", year_id, "_raw_tag_", i, ".csv"),
     yaml = TRUE
   )
+  # last hour of data
+  data_subset <- data_subset[datetime > max(datetime, na.rm = TRUE) - 3600]
 
   # plot and save data
   atl_check_tag(
     data_subset,
     option = "datetime",
-    highlight_first = TRUE, highlight_last = TRUE, last_n = 100,
+    highlight_first = TRUE, highlight_last = TRUE,
+    water_fill = "lightblue", land_fill = "grey70",
     filename = paste0(path, data_subset[1]$species, "_tag_", i)
   )
 
@@ -321,3 +326,51 @@ foreach(i = id) %dofuture% {
 
 # close parallel workers
 plan(sequential)
+
+#-------------------------------------------------------------------------------
+# 6. Check all data with map by ID and date
+#-------------------------------------------------------------------------------
+
+# file path output
+path <- paste0("./outputs/maps_by_tag_and_date_raw/", year_id, "/")
+
+# unique ID combinations
+data[, date := as.Date(datetime)]
+idc <- unique(data[, c("species", "tag", "date")])
+
+# check run time
+st <- Sys.time()
+
+# register cores and backend for parallel processing
+registerDoFuture()
+plan(multisession)
+
+# loop to make plots for all
+foreach(i = seq_len(nrow(idc))) %dofuture% {
+
+  # subset data
+  data_subset <- fread(
+    paste0(path_raw, "watlas_", year_id, "_raw_tag_", idc$tag[i], ".csv"),
+    yaml = TRUE
+  )
+  data_subset[, date := as.Date(datetime)]
+  data_subset <- data_subset[date == idc$date[i]]
+
+  # plot and save data
+  atl_check_tag(
+    data_subset,
+    option = "datetime",
+    highlight_first = TRUE, highlight_last = TRUE,
+    water_fill = "lightblue", land_fill = "grey70",
+    filename = paste0(
+      path, idc$species[i], "_tag_", idc$tag[i], "_date_", idc$date[i]
+    )
+  )
+
+}
+
+# close parallel workers
+plan(sequential)
+
+# check run time
+round(Sys.time() - st, 2)
