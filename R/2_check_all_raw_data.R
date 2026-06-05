@@ -21,7 +21,7 @@ library(foreach)
 library(doFuture)
 
 # specify year and file path's
-year_id <- 2024
+year_id <- 2025
 
 # file path to split raw data
 path_raw <- paste0("./data/", year_id, "/")

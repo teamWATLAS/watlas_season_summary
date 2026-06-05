@@ -16,36 +16,86 @@ library(viridis)
 library(foreach)
 library(mapview)
 
-# specify year and tag
-year_id <- 2023
-tag_id <- "3101"
-
-# file path to SQLite databases
-db_fp <- atl_file_path("sqlite_db")
-
 #-------------------------------------------------------------------------------
-# 1. Load data from one tag
+# 0. Functions
 #-------------------------------------------------------------------------------
 
-# time period for which data should be extracted form the database
-from <- paste0(year_id, "-01-01 00:00:00")
-to <- paste0(year_id, "-12-31 23:59:59")
+atl_get_data_admin <- function(tag_id,
+                               tracking_time_start,
+                               tracking_time_end,
+                               type = c("localizations", "detections")) {
+  type <- match.arg(type)
+  
+  # extract year from tracking_time_start
+  year_id <- format(as.Date(tracking_time_start), "%Y")
+  
+  if (type == "localizations") {
+    # localizations from SQLite
+    db_fp <- atl_file_path("sqlite_db")
+    sqlite_db <- paste0(db_fp, "watlas-", year_id, ".sqlite")
+    con <- RSQLite::dbConnect(RSQLite::SQLite(), sqlite_db)
+    
+    data <- atl_get_data(
+      tag_id,
+      tracking_time_start = tracking_time_start,
+      tracking_time_end   = tracking_time_end,
+      timezone = "UTC",
+      use_connection = con
+    )
+    
+    RSQLite::dbDisconnect(con)
+    
+  } else if (type == "detections") {
+    # detections from MySQL
+    from_unix <- as.numeric(as.POSIXct(tracking_time_start, tz = "UTC")) * 1000
+    to_unix   <- as.numeric(as.POSIXct(tracking_time_end, tz = "UTC")) * 1000
+    
+    sql_query <- glue::glue("
+      SELECT BS, TAG, TIME, SNR, RSSI 
+      FROM atlas{year_id}.DETECTIONS 
+      WHERE TAG = {atl_full_tag_id(tag_id)} 
+        AND TIME BETWEEN '{from_unix}' AND '{to_unix}'
+    ")
+    
+    con <- RMySQL::dbConnect(
+      RMySQL::MySQL(),
+      user = Sys.getenv("username"),
+      password = Sys.getenv("password"),
+      dbname = paste0("atlas", year_id),
+      host = "abtdb1.nioz.nl"
+    )
+    
+    data <- DBI::dbGetQuery(con, sql_query)
+    RMySQL::dbDisconnect(con)
+    
+    # add datetime
+    setDT(data)
+    data[, datetime := as.POSIXct(
+      TIME / 1000,
+      origin = "1970-01-01",
+      tz = "UTC"
+    )]
+  }
 
-# database connection
-sqlite_db <- paste0(db_fp, "watlas-", year_id, ".sqlite")
-con <- RSQLite::dbConnect(RSQLite::SQLite(), sqlite_db)
+  return(data)
+}
 
-# load data from database
-data <- atl_get_data(
-  tag_id,
-  tracking_time_start = from,
-  tracking_time_end = to,
-  timezone = "CET",
-  use_connection = con
+
+
+data <- atl_get_data_admin(
+  tag_id = "3101",
+  tracking_time_start = "2023-03-01 00:00:00",
+  tracking_time_end = "2023-09-30 23:59:59"
 )
 
-# close connection
-RSQLite::dbDisconnect(con)
+
+data <- atl_get_data_admin(
+  tag_id = "3101",
+  tracking_time_start = "2023-03-01 00:00:00",
+  tracking_time_end = "2023-09-30 23:59:59",
+  type = "detections"
+)
+
 
 #-------------------------------------------------------------------------------
 # 2. Check data from one tag
@@ -99,3 +149,110 @@ d_sf_lines <- atl_as_sf(
 # plot interactive map
 mapview(d_sf_lines, zcol = "time_from_last", legend = FALSE) +
   mapview(d_sf, zcol = "time_from_last")
+
+
+
+
+
+
+#-------------------------------------------------------------------------------
+# Check 2023 data
+#-------------------------------------------------------------------------------
+
+### bar-tailed godwits
+
+tag <- "2910"
+data <- atl_get_data_admin(
+  tag_id = tag,
+  tracking_time_start = "2023-01-01 00:00:00",
+  tracking_time_end   = "2023-12-31 23:59:59",
+  type = "detections"
+)
+# no detections
+
+
+tag <- "3247"
+data <- atl_get_data_admin(
+  tag_id = tag,
+  tracking_time_start = "2023-01-01 00:00:00",
+  tracking_time_end   = "2023-12-31 23:59:59",
+  type = "detections"
+)
+data[, .(start = min(datetime), end = max(datetime), .N)]
+
+
+tag <- "3247"
+data <- atl_get_data_admin(
+  tag_id = tag,
+  tracking_time_start = "2023-01-01 00:00:00",
+  tracking_time_end   = "2023-12-31 23:59:59",
+  type = "localizations"
+)
+data[, .(start = min(datetime), end = max(datetime), .N)]
+
+
+# plot all by datetime
+atl_check_tag(
+  data,
+  option = "datetime",
+  highlight_first = TRUE, highlight_last = TRUE
+)
+data[, .(start = min(datetime), end = max(datetime), .N)]
+
+
+
+
+
+
+tag <- "3247"
+data <- atl_get_data_admin(
+  tag_id = tag,
+  tracking_time_start = "2023-01-01 00:00:00",
+  tracking_time_end   = "2023-12-31 23:59:59",
+  type = "localizations"
+)
+
+
+# extract detections
+from_unix <- as.numeric(as.POSIXct(from), tz = "UTC") * 1000
+to_unix <- as.numeric(as.POSIXct(to), tz = "UTC") * 1000
+
+# SQL query
+sql_query <- glue::glue("
+  SELECT BS, TAG, TIME, SNR, RSSI 
+  FROM atlas{year_id}.DETECTIONS 
+  WHERE TAG = {atl_full_tag_id(tag_id)} 
+    AND TIME BETWEEN '{from_unix}' AND '{to_unix}'
+")
+
+# connect to database
+con <- RMySQL::dbConnect(
+  RMySQL::MySQL(),
+  user = Sys.getenv("username"),
+  password = Sys.getenv("password"),
+  dbname = paste0("atlas", year_id),
+  host = "abtdb1.nioz.nl"
+)
+
+d <- DBI::dbGetQuery(con, sql_query)
+
+# Close connection
+RSQLite::dbDisconnect(con)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

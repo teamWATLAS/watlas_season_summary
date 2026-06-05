@@ -18,8 +18,8 @@ library(foreach)
 library(lubridate)
 
 # specify year and file path's
-year_id <- 2023
-year2_id <- year_id + 1 # set to NULL if not existing yet
+year_id <- 2025
+year2_id <- NULL # year_id + 1 # set to NULL if not existing yet
 
 # file path to WATLAS teams data folder
 watlas_fp <- atl_file_path("watlas_teams")
@@ -118,7 +118,7 @@ data[all_tags, on = "tag", `:=`(release_ts = i.release_ts, species = i.species)]
 # make species first column
 setcolorder(data, c("species", setdiff(names(data), c("species"))))
 
-# exclude positions before the release and 24h after
+# exclude positions before the release
 data <- data[datetime > release_ts]
 data[, release_ts := NULL]
 
