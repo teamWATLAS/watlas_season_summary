@@ -5,6 +5,22 @@
 # This script is there to check specific tag fates in detail
 # (fill tag_fate and start stationary column in all_tags)
 
+# Maps creates in \\zeus\cos\birds\watlas\season_summary_raw can be used to
+# classify data. For birds for which more checks need to be done, add script
+# below.
+
+# DESCRIPTION
+# tag_fate (status of last localization): 
+# broken = broken at start or it never worked on bird; 
+# stationary = tag not moving thus bird is dead or lost tag; 
+# departed = bird flew out of tracking area;  
+# disappeared = last localization within tracking area; 
+# "" = not checked yet
+
+# tracking_start:
+# datetimestamp (in UTC) when tag is not moving anymore. 
+# If exact time is unknown, the time is midnight (00:00:00). 
+
 # Summary
 # Functions
 # Check 2023 data
@@ -517,5 +533,10 @@ atl_mapview(data[datetime > as.POSIXct("2023-10-23 23:41:53", tz = "UTC")])
 # last data 2023-10-23 23:42:38
 
 #-------------------------------------------------------------------------------
-# Check 2023 data
+# Check 2024 data
 #-------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------
+# Check 2025 data
+#-------------------------------------------------------------------------------
+
